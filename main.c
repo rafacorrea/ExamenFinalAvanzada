@@ -14,6 +14,20 @@
 #define ABAJO N
 #define ARRIBA -N
 
+int flag = 0;
+void manejador(int ids)
+{
+
+    switch(ids)
+    {
+
+        case SIGUSR1:
+            flag = 1;
+            break;
+
+    }
+}
+
 void printSolution(int * sol);
 int isSafe(int * maze, int x, int y);
 int solveMaze(int * maze);
@@ -22,13 +36,9 @@ int solveMazeUtil(int * tablero, int x, int y, int * solucion);
 int main(int argc, const char * argv[])
 {
     int myid, numprocs;
-    //int data[MAXSIZE];
-    //int rbuf[MAXSIZE];
-    //int i, n, x, low, high, myresult = 0, result = 0;
     char hostname[MPI_MAX_PROCESSOR_NAME];
     int  longitud;
     MPI_Init(&argc,&argv);
-    //MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &provided);
     MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
     MPI_Comm_rank(MPI_COMM_WORLD,&myid);
     
@@ -40,32 +50,51 @@ int main(int argc, const char * argv[])
     srand(time(NULL));
     int * aux = tablero;
     int * final = tablero + casillas;
+    int ** soluciones = NULL;
     for(; aux < final ; aux++)
     {
-        *aux = 1;
+        *aux = rand()%5;
     }
     //int * solucion = malloc(sizeof(int) * myid * (N*N)/numprocs);
     //int * secciones = tablero +  (myid * (N*N)/numprocs);
     //#pragma omp parallel
     {     
-        solveMaze(tablero);
-        /*int id = omp_get_thread_num();
-        //int * secciones = malloc(sizeof(int) * id * (N*N)/numsecciones);    
-        if(aux = final)
-        if(myid=0)
-            solveMaze(tablero);
+
+        if(myid==0)
+        {
+            signal(SIGUSR1, manejador);
+            printf("???\n");
+            int numero = 0;
+            for(int i = 1; i < numprocs; i++)
+	        {
+	            while (flag = 0)
+	            {
+                    int * temp;
+                    MPI_Recv(&temp,N*N,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                    *soluciones = (int *)realloc(*soluciones,(numero+1)*sizeof(int *));
+                    numero++;
+                    *(soluciones+numero) = temp;
+
+                }
+                flag = 1;
+                printf("numero de soluciones: %d\n", numero);
+            }
+        }
+        
         else
         {
-            
+            #pragma omp parallel
+            if (omp_get_thread_num() == 0)
+                solveMaze(tablero);
+            else
+            {
+                int continuar;
+                MPI_Recv(&continuar,1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);   
+            }
         }
-        */
-       //if()
-        /*#pragma omp for
-        for()
-        */
+
         
     }
-    //free (tids);
     MPI_Finalize();
     
     return 0;
@@ -73,12 +102,14 @@ int main(int argc, const char * argv[])
 
 void printSolution(int * sol)
 {
-    for (int i = 0; i < N*N; i++)
+    /*for (int i = 0; i < N*N; i++)
     {
         printf(" %d ", *(sol+i));
         if (i % N == N-1)
             printf("\n");
     }
+    */
+    MPI_Send(sol,N*N,MPI_INT,0,0,MPI_COMM_WORLD);
 }
 
 int isSafe(int * maze, int x, int y)
@@ -104,7 +135,6 @@ int solveMaze(int * maze)
 
 int solveMazeUtil(int * maze, int x, int y, int * sol)
 {
-    printf("solve\n");
     if(x == N-1 && y == N-1)
     {
         *(sol+ (y*N + x)) = 1;
@@ -126,7 +156,6 @@ int solveMazeUtil(int * maze, int x, int y, int * sol)
             return 1;
  
         *(sol+ (y*N + x)) = 0;
-        printf("adios\n");
         return 0;
     }   
  
