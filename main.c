@@ -29,9 +29,9 @@ void manejador(int ids)
 }
 
 void printSolution(int * sol);
-int isSafe(int * maze, int x, int y);
+int isSafe(int * maze, int* sol, int x, int y);
 int solveMaze(int * maze);
-int solveMazeUtil(int * tablero, int x, int y, int * solucion);
+int solveMazeUtil(int * tablero, int x, int y, int * solucion, int);
 
 int main(int argc, const char * argv[])
 {
@@ -60,10 +60,10 @@ int main(int argc, const char * argv[])
     //#pragma omp parallel
     {     
 
-        if(myid==0)
+        /*if(myid==0)
         {
             signal(SIGUSR1, manejador);
-            printf("???\n");
+            //printf("???\n");
             int numero = 0;
             for(int i = 1; i < numprocs; i++)
 	        {
@@ -80,17 +80,21 @@ int main(int argc, const char * argv[])
                 printf("numero de soluciones: %d\n", numero);
             }
         }
-        
-        else
+        */
+        //else
         {
-            #pragma omp parallel
-            if (omp_get_thread_num() == 0)
+            //#pragma omp parallel
+            //if (omp_get_thread_num() == 0)
                 solveMaze(tablero);
-            else
-            {
-                int continuar;
-                MPI_Recv(&continuar,1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);   
+            //else
+            /*{
+                for (int i = 0; i < numprocs; i++)
+                {
+                    int continuar;
+                    MPI_Recv(&continuar,1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);   
+                }
             }
+            */
         }
 
         
@@ -102,20 +106,23 @@ int main(int argc, const char * argv[])
 
 void printSolution(int * sol)
 {
-    /*for (int i = 0; i < N*N; i++)
+    for (int i = 0; i < N*N; i++)
     {
-        printf(" %d ", *(sol+i));
+        printf(" %3d ", *(sol+i));
         if (i % N == N-1)
             printf("\n");
     }
-    */
+    
     MPI_Send(sol,N*N,MPI_INT,0,0,MPI_COMM_WORLD);
 }
 
-int isSafe(int * maze, int x, int y)
+int isSafe(int * maze, int* sol, int x, int y)
 {
-    if(x >= 0 && x < N && y >= 0 && y < N && *(maze + (y*N + x)))
+    if(x >= 0 && x < N && y >= 0 && y < N && *(maze + (y*N + x)) && !*(sol + (y*N + x)))
+    {
+        //printf("%d\n", *(sol + (y*N + x)));
         return 1;
+    }
  
     return 0;
 }
@@ -123,39 +130,47 @@ int isSafe(int * maze, int x, int y)
 int solveMaze(int * maze)
 {
     int * sol = malloc(sizeof(int)*N*N);
-    if(solveMazeUtil(maze, 0, 0, sol) == 0)
+    solveMazeUtil(maze,0,0,sol,0);
+    /*if(solveMazeUtil(maze, 0, 0, sol, 0) == 0)
     {
         printf("Solucion no existe");
-        return 0;
-    }
- 
-    printSolution(sol);
+        return 0;   
+    }*/
+    
+    //printSolution(sol);
     return 1;
 }
 
-int solveMazeUtil(int * maze, int x, int y, int * sol)
+int solveMazeUtil(int * maze, int x, int y, int * sol, int current)
 {
     if(x == N-1 && y == N-1)
     {
-        *(sol+ (y*N + x)) = 1;
-        return 1;
+        *(sol+ (y*N + x)) = current;
+        printSolution(sol);
+        *(sol+ (y*N + x)) = 0;
+        //return 1;
     }
  
-    if(isSafe(maze, x, y))
+    if(isSafe(maze, sol, x, y))
     {
-        *(sol+ (y*N + x))= 1;
+        *(sol+ (y*N + x))= current;
+        current++;
  
-        if (solveMazeUtil(maze, x+1, y, sol))
+        if (solveMazeUtil(maze, x+1, y, sol, current))
         {
-
             return 1;
         }
         
 
-        if (solveMazeUtil(maze, x, y+1, sol))
+        if (solveMazeUtil(maze, x, y+1, sol, current))
             return 1;
- 
+        if (solveMazeUtil(maze, x-1, y, sol, current))
+            return 1;
+            if (solveMazeUtil(maze, x, y-1, sol, current))
+            return 1;
+    
         *(sol+ (y*N + x)) = 0;
+        current--;
         return 0;
     }   
  
